@@ -1,6 +1,6 @@
 # SurfaceTerminal
 
-![Prototype](prototype.png)
+![Prototype](./prototype.png)
 
 ## About
 
