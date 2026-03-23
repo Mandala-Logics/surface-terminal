@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using MandalaLogics.SurfaceTerminal.Layout;
+using MandalaLogics.SurfaceTerminal.Layout.Components;
 using MandalaLogics.SurfaceTerminal.Surfaces;
 using MandalaLogics.SurfaceTerminal.Text;
 using MandalaLogics.Threading;
@@ -13,11 +13,14 @@ namespace MandalaLogics.SurfaceTerminal
         public static event EventHandler? Terminated;
         
         private static readonly TimeSpan frameTime = TimeSpan.FromMilliseconds(50);
+        private static readonly TimeSpan inputLockedTime = TimeSpan.FromMilliseconds(500);
         private static readonly TextDisplayPanel errorPanel;
         
         public static ConsoleColor ForeColour { get; set; } = ConsoleColor.White;
         public static ConsoleColor BackColour { get; set; } = ConsoleColor.Black;
         public static bool Running => _displayThread.State.Running;
+        public static bool DisplayingError { get; private set; }
+        public static SurfaceLayout Layout => _layout;
 
         private static ThreadBase _displayThread = NullThread.CompletedThread;
         private static readonly MessageLoopThread<ConsoleKeyInfo> messageThread;
@@ -28,18 +31,26 @@ namespace MandalaLogics.SurfaceTerminal
         {
             errorPanel = new TextDisplayPanel
             {
-                Options = SurfaceWriteOptions.Centered
+                Options = SurfaceWriteOptions.Centered | SurfaceWriteOptions.WrapText
             };
             
             Console.CancelKeyPress += ConsoleOnCancelKeyPress;
             
-            messageThread = new MessageLoopThread<ConsoleKeyInfo>((tc, cki) => _layout?.OnKeyPressed(cki, tc));
+            messageThread = new MessageLoopThread<ConsoleKeyInfo>(HandleKeyPressed);
             messageThread.Start();
             
             messageThread.ThreadComplete += OnThreadComplete;
+            
+            errorPanel.Text = new ConsoleString($"No layout is set.", 
+                new ConsoleDecoration(null, ConsoleColor.DarkRed));
         }
 
-        private static void ConsoleOnCancelKeyPress(object sender, ConsoleCancelEventArgs e)
+        private static void HandleKeyPressed(ThreadController tc, ConsoleKeyInfo keyInfo)
+        {
+            _layout?.OnKeyPressed(keyInfo, tc);
+        }
+
+        private static void ConsoleOnCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
         {
             if (Running)
             {
@@ -47,6 +58,8 @@ namespace MandalaLogics.SurfaceTerminal
                 messageThread.AwaitAbort();
                 
                 _inputThread.AwaitAbort();
+                
+                Terminated?.Invoke(null, EventArgs.Empty);
             }
         }
 
@@ -69,13 +82,40 @@ namespace MandalaLogics.SurfaceTerminal
             
             _displayThread.ThreadComplete += OnThreadComplete;
             _inputThread.ThreadComplete += OnThreadComplete;
+        }
 
+        public static void Stop(Exception? e)
+        {
+            if (e is { })
+            {
+                var builder = new ConsoleStringBuilder();
+
+                errorPanel.Options = SurfaceWriteOptions.WrapText;
+            
+                builder.Append(new ConsoleString("Exception encountered:\n",
+                    new ConsoleDecoration(ConsoleColor.Black, ConsoleColor.DarkRed)));
+            
+                builder.Append(new ConsoleString(e.Message + "\n",
+                    new ConsoleDecoration(ConsoleColor.DarkRed, null)));
+                
+                builder.Append(new ConsoleString(e.StackTrace ?? string.Empty));
+
+                errorPanel.Text = builder.GetConsoleString();
+
+                DisplayingError = true;
+            }
+            
+            _displayThread.AwaitAbort();
+            messageThread.Abort();
+            _inputThread.AwaitAbort();
         }
 
         private static void OnThreadComplete(ThreadBase sender, ThreadResult result)
         {
             if (result.Failed)
             {
+                Console.Clear();
+                Console.SetCursorPosition(0, 0);
                 Console.WriteLine(result.Exception.Message);
                 Console.WriteLine(result.Exception.StackTrace);
 
@@ -94,6 +134,9 @@ namespace MandalaLogics.SurfaceTerminal
                     var keyInfo = Console.ReadKey(true);
                     
                     messageThread.Add(keyInfo);
+
+                    if (messageThread.CurrentExecutionTime > inputLockedTime)
+                        throw new LayoutException(LayoutExceptionReason.InputThreadLocked);
                 }
                 else
                 {
@@ -125,11 +168,8 @@ namespace MandalaLogics.SurfaceTerminal
                 
                 buffer.Fill(ConsoleChar.WhiteSpace);
 
-                if (_layout is null)
+                if (_layout is null || DisplayingError)
                 {
-                    errorPanel.Text = new ConsoleString($"No layout is set - frame number: {Math.Pow(frameNumber, 2)}", 
-                        new ConsoleDecoration(null, ConsoleColor.DarkRed));
-                    
                     errorPanel.Render(buffer, frameNumber);
                 }
                 else

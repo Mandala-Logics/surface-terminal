@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
-namespace Terminal;
+namespace TerminalExample;
 
     public readonly struct ShellOutput
     {
@@ -10,7 +10,7 @@ namespace Terminal;
         public string StandardError { get; }
         public int ExitCode { get; }
         public bool HasOutput {get;}
-        public bool Sucess => ExitCode == 0;
+        public bool Success => ExitCode == 0;
         public bool Failed => ExitCode != 0;
         public bool HasError => !string.IsNullOrEmpty(StandardError);
 

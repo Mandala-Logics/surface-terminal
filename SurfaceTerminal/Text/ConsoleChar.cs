@@ -1,5 +1,3 @@
-using System;
-
 namespace MandalaLogics.SurfaceTerminal.Text
 {
     public abstract class ConsoleChar
@@ -9,7 +7,17 @@ namespace MandalaLogics.SurfaceTerminal.Text
         
         public abstract ConsoleDecoration Decoration { get; }
 
-        public bool IsWhiteSpace => char.IsWhiteSpace(GetChar(0UL));
+        public char Char => GetChar(0UL);
+
+        public bool IsWhiteSpace
+        {
+            get
+            {
+                var c = GetChar(0UL);
+
+                return char.IsWhiteSpace(c) || c == '\n';
+            }
+        }
         
         /// <summary>
         /// Gets the character represented by this class for the corresponding frameNumber.

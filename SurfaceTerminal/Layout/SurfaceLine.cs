@@ -9,7 +9,7 @@ namespace MandalaLogics.SurfaceTerminal.Layout
         None = 0,
         Selected,
         Disabled,
-        Active,
+        Activated,
         Enabled,
         Deactivated,
         Deselected
@@ -22,7 +22,45 @@ namespace MandalaLogics.SurfaceTerminal.Layout
         public event SurfaceLineEventHandler? OnStateChanged;
         
         public SurfacePanel? Owner { get; internal set; }
-        public SurfaceLineState State { get; private set; } = SurfaceLineState.None;
+        
+        /// <summary>
+        /// The last state successfully applied to this line.
+        /// </summary>
+        public SurfaceLineState State { get; private set; }
+
+        public bool Enabled
+        {
+            get => _enabled;
+            set
+            {
+                if (value) TryEnable();
+                else TryDisable();
+            }
+        }
+        
+        public bool Selected
+        {
+            get => _selected;
+            set
+            {
+                if (value) TrySelect();
+                else TryDeselect();
+            }
+        }
+        
+        public bool Active
+        {
+            get => _activated;
+            set
+            {
+                if (value) TryActivate();
+                else TryDeactivate();
+            }
+        }
+        
+        private bool _enabled = true;
+        private bool _selected = false;
+        private bool _activated = true;
         
         public abstract void Render(ISurface<ConsoleChar> surface, ulong frameNumber);
         
@@ -34,31 +72,41 @@ namespace MandalaLogics.SurfaceTerminal.Layout
         }
         
         protected abstract void OnKeyPressed(ConsoleKeyInfo keyInfo);
-
-        internal bool RequestStateChange(SurfaceLineState state)
-        {
-            if (StateChangeRequested(state))
-            {
-                State = state;
-                
-                OnStateChanged?.Invoke(this);
-                
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
         
-        private bool TryChangeState(SurfaceLineState newState)
+        protected bool TryChangeState(SurfaceLineState newState)
         {
             if (Owner is null) return false;
+
+            if (newState == State) return false;
 
             if (Owner.LineStateTryChange(this, newState))
             {
                 State = newState;
                 
+                switch (newState)
+                {
+                    case SurfaceLineState.Selected:
+                        _selected = true;
+                        break;
+                    case SurfaceLineState.Disabled:
+                        _enabled = false;
+                        break;
+                    case SurfaceLineState.Activated:
+                        _activated = true;
+                        break;
+                    case SurfaceLineState.Enabled:
+                        _enabled = true;
+                        break;
+                    case SurfaceLineState.Deactivated:
+                        _activated = false;
+                        break;
+                    case SurfaceLineState.Deselected:
+                        _selected = false;
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException(nameof(newState), newState, null);
+                }
+                
                 OnStateChanged?.Invoke(this);
                 
                 return true;
@@ -69,16 +117,112 @@ namespace MandalaLogics.SurfaceTerminal.Layout
             }
         }
 
-        protected bool TrySelect() => TryChangeState(SurfaceLineState.Selected);
+        public bool TrySelect()
+        {
+            if (_selected) return true;
 
-        protected bool TryActivate() => TryChangeState(SurfaceLineState.Active);
+            if (StateChangeRequested(SurfaceLineState.Selected))
+            {
+                _selected = true;
+
+                State = SurfaceLineState.Selected;
+                
+                OnStateChanged?.Invoke(this);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryActivate()
+        {
+            if (_activated) return true;
+            
+            if (StateChangeRequested(SurfaceLineState.Activated))
+            {
+                _activated = true;
+                
+                State = SurfaceLineState.Activated;
+                
+                OnStateChanged?.Invoke(this);
+
+                return true;
+            }
+
+            return false;
+        }
         
-        protected bool TryEnable() => TryChangeState(SurfaceLineState.Enabled);
+        public bool TryEnable()
+        {
+            if (_enabled) return true;
+            
+            if (StateChangeRequested(SurfaceLineState.Enabled))
+            {
+                _enabled = true;
+                
+                State = SurfaceLineState.Enabled;
+                
+                OnStateChanged?.Invoke(this);
 
-        protected bool TryDisable() => TryChangeState(SurfaceLineState.Disabled);
+                return true;
+            }
 
-        protected bool TryDeactivate() => TryChangeState(SurfaceLineState.Deactivated);
+            return false;
+        }
 
-        protected bool TryDeselect() => TryChangeState(SurfaceLineState.Deselected);
+        public bool TryDisable()
+        {
+            if (!_enabled) return true;
+            
+            if (StateChangeRequested(SurfaceLineState.Disabled))
+            {
+                _enabled = false;
+                
+                State = SurfaceLineState.Disabled;
+                
+                OnStateChanged?.Invoke(this);
+                
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryDeactivate()
+        {
+            if (!_activated) return true;
+            
+            if (StateChangeRequested(SurfaceLineState.Deactivated))
+            {
+                _activated = false;
+                
+                State = SurfaceLineState.Deactivated;
+                
+                OnStateChanged?.Invoke(this);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public bool TryDeselect()
+        {
+            if (!_selected) return true;
+            
+            if (StateChangeRequested(SurfaceLineState.Deselected))
+            {
+                _selected = false;
+                
+                State = SurfaceLineState.Deselected;
+                
+                OnStateChanged?.Invoke(this);
+
+                return true;
+            }
+
+            return false;
+        }
     }
 }

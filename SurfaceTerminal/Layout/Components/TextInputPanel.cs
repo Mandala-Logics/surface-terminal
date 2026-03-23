@@ -1,16 +1,11 @@
 using System;
-using System.Linq;
 using MandalaLogics.SurfaceTerminal.Surfaces;
 using MandalaLogics.SurfaceTerminal.Text;
 
-namespace MandalaLogics.SurfaceTerminal.Layout
+namespace MandalaLogics.SurfaceTerminal.Layout.Components
 {
-    
-    
     public class TextInputPanel : SurfacePanel
     {
-        public override bool CanBeSelected => true;
-
         public ConsoleDecoration TextDecoration { get; set; } = default;
         public string Text { get; set; } = string.Empty;
         public SurfaceWriteOptions TextDisplay { get; set; } = SurfaceWriteOptions.None;
@@ -22,6 +17,10 @@ namespace MandalaLogics.SurfaceTerminal.Layout
             if (IsSelected && frameNumber % 32 > 16)
             {
                 text += '█';
+            }
+            else
+            {
+                text += ' ';
             }
             
             var s = new ConsoleString(text, TextDecoration);
@@ -48,8 +47,8 @@ namespace MandalaLogics.SurfaceTerminal.Layout
                         break;
                     
                     case ConsoleKey.Enter:
-                        
-                        Return();
+
+                        Text += '\n';
 
                         break;
                 }

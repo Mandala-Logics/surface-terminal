@@ -2,14 +2,14 @@ using System;
 using MandalaLogics.SurfaceTerminal.Surfaces;
 using MandalaLogics.SurfaceTerminal.Text;
 
-namespace MandalaLogics.SurfaceTerminal.Layout
+namespace MandalaLogics.SurfaceTerminal.Layout.Components
 {
     public class PromptLine : SurfaceLine
     {
         public string Prompt { get; set; } = string.Empty;
 
-        private string _res = string.Empty;
-        
+        public string Text { get; set; } = string.Empty;
+
         public override void Render(ISurface<ConsoleChar> surface, ulong frameNumber)
         {
             if (surface.Width < 2) return;
@@ -18,11 +18,15 @@ namespace MandalaLogics.SurfaceTerminal.Layout
             
             builder.Append(Prompt + " : ", new ConsoleDecoration(ConsoleColor.Gray, null));
 
-            var displayString = _res;
+            var displayString = Text;
             
-            if (State == SurfaceLineState.Selected && frameNumber % 32 > 16)
+            if (Selected && frameNumber % 32 > 16)
             {
                 displayString += '█';
+            }
+            else
+            {
+                displayString += ' ';
             }
 
             builder.Append(displayString, default);
@@ -57,22 +61,16 @@ namespace MandalaLogics.SurfaceTerminal.Layout
                 {
                     case ConsoleKey.Backspace:
                         
-                        if (_res.Length == 0) return;
+                        if (Text.Length == 0) return;
 
-                        _res = _res[..^1];
+                        Text = Text[..^1];
                             
-                        break;
-                    
-                    case ConsoleKey.Enter:
-
-                        TryDeselect();
-
                         break;
                 }
             }
-            else
+            else if (keyInfo.Modifiers == 0)
             {
-                _res += keyInfo.KeyChar;
+                Text += keyInfo.KeyChar;
             }
         }
     }

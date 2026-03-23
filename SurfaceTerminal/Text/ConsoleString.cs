@@ -76,16 +76,20 @@ namespace MandalaLogics.SurfaceTerminal.Text
             return new ConsoleString(_chars[offset .. (offset + count)]);
         }
 
-        public List<ConsoleString> BreakByWhitespace()
+        public List<ConsoleString> BreakByWhitespace(out List<ConsoleChar> whitespace)
         {
             var ls = new List<ConsoleChar>();
             var ret = new List<ConsoleString>();
+            
+            var spaces = new List<ConsoleChar>();
             
             for (var x = 0; x < Count; x++)
             {
                 if (this[x].IsWhiteSpace)
                 {
                     if (ls.Count == 0) continue;
+
+                    spaces.Add(this[x]);
                     
                     ret.Add(new ConsoleString(ls));
                     ls.Clear();
@@ -98,6 +102,7 @@ namespace MandalaLogics.SurfaceTerminal.Text
             
             if (ls.Count > 0) ret.Add(new ConsoleString(ls));
 
+            whitespace = spaces;
             return ret;
         }
 
@@ -138,7 +143,9 @@ namespace MandalaLogics.SurfaceTerminal.Text
 
             if (options.HasFlag(SurfaceWriteOptions.WrapText))
             {
-                var words = BreakByWhitespace();
+                var words = BreakByWhitespace(out var ws);
+                using var e = ws.GetEnumerator();
+                
                 if (words.Count == 0) return;
 
                 var lines = new List<ConsoleStringBuilder> { new ConsoleStringBuilder() };
@@ -148,11 +155,17 @@ namespace MandalaLogics.SurfaceTerminal.Text
 
                 foreach (var word in words)
                 {
+                    e.MoveNext();
+                    
                     if (word.Count + 1 <= w - lines[l].Length)
                     {
                         // word fits on current line
                         lines[l].Append(word);
-                        lines[l].Append(new ConsoleTextChar(' ', word[^1].Decoration));
+
+                        if (e.Current?.Char != '\n')
+                        {
+                            lines[l].Append(e.Current ?? ConsoleChar.WhiteSpace);
+                        }
                     }
                     else
                     {
@@ -166,7 +179,7 @@ namespace MandalaLogics.SurfaceTerminal.Text
                             if (word.Count + 1 <= w)
                             {
                                 lines[l].Append(word);
-                                lines[l].Append(new ConsoleTextChar(' ', word[^1].Decoration));
+                                lines[l].Append(e.Current ?? ConsoleChar.WhiteSpace);
                                 continue;
                             }
                         }
@@ -189,7 +202,13 @@ namespace MandalaLogics.SurfaceTerminal.Text
                         }
 
                         if (lines[l].Length < w)
-                            lines[l].Append(new ConsoleTextChar(' ', word[^1].Decoration));
+                            lines[l].Append(e.Current ?? ConsoleChar.WhiteSpace);
+                    }
+
+                    if ((e.Current?.GetChar(0UL) ?? ' ') == '\n')
+                    {
+                        lines.Add(new ConsoleStringBuilder());
+                        l++;
                     }
                 }
 
@@ -222,10 +241,7 @@ namespace MandalaLogics.SurfaceTerminal.Text
                         leadingSpaces = 0;
                     }
 
-                    int x = lineStartX;
-
-                    for (int i = 0; i < leadingSpaces && x < surface.Width; i++, x++)
-                        surface[x, y] = ConsoleChar.WhiteSpace;
+                    int x = lineStartX + leadingSpaces;
 
                     for (int i = 0; i < s.Count && x < surface.Width; i++, x++)
                         surface[x, y] = s[i];

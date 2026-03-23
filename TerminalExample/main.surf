@@ -1,0 +1,8 @@
+layout 100x100
+    split h -2
+        split h 1
+            panel header
+            split h 1
+                panel tabs
+                panel main
+        panel status_bar

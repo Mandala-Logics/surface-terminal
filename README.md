@@ -1,6 +1,7 @@
 # SurfaceTerminal
 
-![Prototype](./prototype.png)
+![Example1](./example1.gif)
+![Example1](./example2.png)
 
 ## About
 
@@ -35,60 +36,27 @@ layout.RootNode.Split(0.5d, LayoutSplitDirection.Horizonal);
 
 ## Example Project
 
-``` csharp
-using MandalaLogics.SurfaceTerminal;
-using MandalaLogics.SurfaceTerminal.Layout;
-using MandalaLogics.SurfaceTerminal.Parsing;
-using MandalaLogics.SurfaceTerminal.Text;
+The example project demonstrates a fully interactive terminal application built using SurfaceTerminal, showcasing how the framework can be used to create structured, multi-panel console user interfaces. The demo includes a tabbed layout with several independent screens: a welcome page with animation and image rendering, a file browser with live metadata display, a data entry form, a configuration panel using toggle and option controls, and an informational “about” screen. Together, these components illustrate layout splitting, nested layouts, interactive input handling, and dynamic rendering — all within a single cohesive application.
 
-namespace Terminal;
+The project is intentionally designed to act as a reference implementation rather than a minimal sample. It highlights key features such as switching panels via a TabPanel, embedding layouts using SubLayoutPanel, rendering images directly in the console, and creating animated characters driven by the render frame. For example, the main layout is loaded from a `.surf` file and then wired up programmatically:
 
-internal static class Program
-{
-    static void Main(string[] args)
-    {
-        var sr = CommandHelper.GetAssemblyStreamReader("main.surf");
+```csharp
+MainLayout = LayoutDeserializer.Read(sr);
 
-        var layout = LayoutDeserializer.Read(sr);
+SetUpLayout();
 
-        var listDisplay = new ListDisplayPanel();
-        
-        listDisplay.Add(new TextDisplayLine
-        {
-            Options = SurfaceWriteOptions.Centered, 
-            Decoration = new ConsoleDecoration(null, ConsoleColor.Gray),
-            Text = "Mandala Logics"
-        });
-        
-        layout.SetPanel("header", listDisplay);
-
-        var list = new ListPanel
-        {
-            new PromptLine() { Prompt = "Name" },
-            new PromptLine() { Prompt = "Email" },
-            new PromptLine() { Prompt = "Website" }
-        };
-        
-        layout.SetPanel("main", list);
-
-        var statusPanel = new TextDisplayPanel();
-        
-        layout.SetPanel("status_bar", statusPanel);
-
-        statusPanel.Text = "Use the arrow keys to change field.";
-
-        foreach (var line in list)
-        {
-            line.OnStateChanged += l =>
-            {
-                if (l.State == SurfaceLineState.Selected)
-                    statusPanel.Text = new ConsoleString($"Please enter your {((PromptLine)l).Prompt.ToLower()}.");
-            };
-        }
-        
-        SurfaceTerminal.Display(layout);
-        
-        SurfaceTerminal.Start();
-    }
-}
+SurfaceTerminal.Display(MainLayout);
+SurfaceTerminal.Start();
 ```
+
+Individual screens are built using composable panels. The welcome screen, for instance, splits the layout and combines centered text with an image panel:
+
+```csharp
+WelcomeLayout.RootNode.Split(0.5d, LayoutSplitDirection.Horizonal);
+
+WelcomeLayout.RootNode[1].SetPanel("top", topPanel);
+WelcomeLayout.RootNode[2].SetPanel("bottom", logoPanel);
+```
+
+This example demonstrates how SurfaceTerminal can be used to construct real-world text-based interfaces with navigation, forms, configuration menus, and dynamic content, making it a practical starting point for building full console applications.
+
