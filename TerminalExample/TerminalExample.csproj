@@ -8,6 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\OS\OS.csproj" />
       <ProjectReference Include="..\SurfaceTerminal\SurfaceTerminal.csproj" />
     </ItemGroup>
 

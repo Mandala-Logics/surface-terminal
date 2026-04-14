@@ -196,7 +196,7 @@ internal static partial class Program
         FileInfoPanel.Add(new TextDisplayLine() 
             { Text = $"Type: {path.EndType}"});
 
-        var fileLen = path.IsDir ? "n/a" : PathBase.ParseFileLength(path.FileLength());
+        var fileLen = path.IsDir ? "n/a" : PathBase.ParseFileLength(path.GetFileInfo().Length);
         
         FileInfoPanel.Add(new TextDisplayLine() 
             { Text = $"File length: { fileLen }"});

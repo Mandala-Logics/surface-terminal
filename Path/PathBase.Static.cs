@@ -11,9 +11,6 @@ namespace MandalaLogics.Path
     {
         public static PathBase PathSubrtation(PathBase path1, PathBase path2)
         {
-            if (path1 is null) throw new ArgumentNullException(nameof(path1));
-            else if (path2 is null) throw new ArgumentNullException(nameof(path2));
-
             if (path2.Count >= path1.Count)
             {
                 throw new PathException("Cannot subtract a path which has the same number of elements " +

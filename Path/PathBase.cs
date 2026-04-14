@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -53,7 +54,6 @@ namespace MandalaLogics.Path
             get
             {
                 if (HasExtension) return string.Join(".", _pathElements[^1], Extension);
-                else if (IsRootPath && Structure.AllowOnlyStartToken) return string.Empty;
                 else return _pathElements[^1];
             }
         }
@@ -129,7 +129,7 @@ namespace MandalaLogics.Path
 
         protected bool? exists { get; private set; }
         protected AccessLevel? access { get; private set; }
-        protected string? path { get; private set; } = null;    
+        protected string? path { get; private set; } = null;
 
         private List<string> _pathElements;
 
@@ -361,19 +361,72 @@ namespace MandalaLogics.Path
         /// Stops watching the path and stops firing the PathChanged event.
         /// </summary>
         public abstract void StopWatchingPath();
-        public abstract long FileLength();
         public abstract PathBase GetWorkingDirectory();
 
         /// <summary>
-        /// Allows the implimenting class to directly set the existance of the file/dir, for example: if the file is deleted.
+        /// Allows the implementing class to directly set the existence of the file/dir, for example: if the file is deleted.
         /// </summary>
-        /// <param name="value">A nullable bool. Null indicates that the existance of the file/dir is unknown.</param>
+        /// <param name="value">A nullable bool. Null indicates that the existence of the file/dir is unknown.</param>
         protected void SetExists(bool? value) { exists = value; }
         protected void SetAccess(AccessLevel? value) { access = value; }
         protected void SetEndType(DestType value) { EndType = value; }
         protected void OnPathChanged(PathChangedEventArgs args)
         {
             PathChanged?.Invoke(this, args);
+        }
+
+        public FileInfo GetFileInfo()
+        {
+            if (!IsFile)
+                throw new PathException("Cannot get file info for a non-file path.");
+
+            FileInfo fi;
+
+            try
+            {
+                fi = new FileInfo(Path);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                SetExists(true);
+                throw new PathAccessException("No permission to get file info.");
+            }
+            catch (SecurityException)
+            {
+                SetExists(true);
+                throw new PathAccessException("No permission to get file info.");
+            }
+            
+            SetExists(fi.Exists);
+
+            return !fi.Exists ? throw new PathException("Path does not exist.") : fi;
+        }
+
+        public DirectoryInfo GetDirectoryInfo()
+        {
+            if (!IsDir)
+                throw new PathException("Cannot get directory info for a non-dir path.");
+
+            DirectoryInfo di;
+            
+            try
+            {
+                di = new DirectoryInfo(Path);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                SetExists(true);
+                throw new PathAccessException("No permission to get dir info.");
+            }
+            catch (SecurityException)
+            {
+                SetExists(true);
+                throw new PathAccessException("No permission to get dir info.");
+            }
+            
+            SetExists(di.Exists);
+            
+            return !di.Exists ? throw new PathException("Path does not exist.") : di;
         }
 
         /// <summary>
@@ -478,7 +531,7 @@ namespace MandalaLogics.Path
             {
                 dir = node.Value.Dir();
 
-                foreach (PathBase pb in dir)
+                foreach (var pb in dir)
                 {
                     node = node.AddChild(pb);
 
@@ -489,7 +542,7 @@ namespace MandalaLogics.Path
             return root;
         }
         /// <summary>
-        /// Copies this file path to the distination path.
+        /// Copies this file path to the destination path.
         /// </summary>
         /// <param name="dest">The destination path at which to create the copy.</param>
         /// <param name="overWrite">Indicates that if the file exists then it should be overwritten.</param>
@@ -561,7 +614,7 @@ namespace MandalaLogics.Path
             }
             catch (PathAccessException e)
             {
-                src.Dispose();
+                await src.DisposeAsync();
                 dst?.Dispose();
                 throw new PathAccessException(this, $"Failed to open stream for copying.", e);
             }
@@ -574,8 +627,8 @@ namespace MandalaLogics.Path
             catch (Exception e) { throw new IOException("Failed to copy file.", e); }
             finally
             {
-                dst.Dispose();
-                src.Dispose();
+                await dst.DisposeAsync();
+                await src.DisposeAsync();
             }
         }
         /// <summary>
@@ -600,12 +653,12 @@ namespace MandalaLogics.Path
                     {
                         IEnumerable<PathBase> deletePaths = dst.Dir();
 
-                        foreach (PathBase path in deletePaths)
+                        foreach (var path in deletePaths)
                         {
                             if (!path.Access.HasFlag(AccessLevel.Delete)) throw new PathAccessException(dst, "Cannot copy to this dir because it already exists and/or one or more file/folders cannot be deleted.");
                         }
 
-                        foreach (PathBase path in deletePaths)
+                        foreach (var path in deletePaths)
                         {
                             try { path.Delete(); }
                             catch (PathException)
@@ -688,7 +741,7 @@ namespace MandalaLogics.Path
                 dst.CreateDirectory();
             }
 
-            foreach (PathBase path in srcPaths)
+            foreach (var path in srcPaths)
             {
                 if (path.IsFile) { await path.CopyFileAsync(dst.Add(path.TakeEnd(1)), cancellationToken); }
                 else if (copyFolders) { await path.CopyDirAsync(dst.Add(path.TakeEnd(1)), cancellationToken); }
@@ -1065,18 +1118,6 @@ namespace MandalaLogics.Path
             return ret;
         }
         /// <summary>
-        /// Returns true if this path contains the given path as a descendant.
-        /// </summary>
-        /// <param name="path">The path to check.</param>
-        /// <returns></returns>
-        public bool ContainsPath(PathBase path)
-        {
-            if (path is null) throw new ArgumentNullException("path");            
-            else if (IsAbsolutePath != path.IsAbsolutePath) throw new PathTypeException($"Cannot say if an {Type}-type path contains a {path.Type}-type path.");
-
-            return path.StartsWith(this);
-        }
-        /// <summary>
         /// Returns a valid dir new child dir path for this dir in the form "new folder {x}".
         /// </summary>
         public PathBase GetValidDirName()
@@ -1151,8 +1192,9 @@ namespace MandalaLogics.Path
                 return ret;
             }
         }
-        public IEnumerator<string> GetEnumerator() => ((IReadOnlyList<string>)_pathElements).GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => ((IReadOnlyList<string>)_pathElements).GetEnumerator();
+
+        public IEnumerator<string> GetEnumerator() => new PathEnumerator(this);
+        IEnumerator IEnumerable.GetEnumerator() => new PathEnumerator(this);
         
         public override string ToString() => Path;
         public override bool Equals(object? obj)

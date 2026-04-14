@@ -1,9 +1,8 @@
 using System;
 using System.Text.RegularExpressions;
 using System.Linq;
-using MandalaLogics.Path;
 
-namespace TerminalExample
+namespace MandalaLogics.Path
 {
     [Flags]
     public enum LinuxAccessBits : byte

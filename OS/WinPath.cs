@@ -7,6 +7,7 @@ using MandalaLogics.Encoding;
 
 namespace MandalaLogics.Path
 {
+    [Encodable("win_path")]
     public class WinPath : PathBase, IEncodable
     {
         public static PathStructure PathStructure { get; } =
@@ -49,7 +50,7 @@ namespace MandalaLogics.Path
 
             TempDirectory = new WinPath(System.IO.Path.GetTempPath(), DestType.Dir);
 
-            EncodedObject.RegisterTypes(typeof(WinPath));
+            EncodingRegister.RegisterTypes(typeof(WinPath));
         }
 
         public override AccessLevel CheckAccess()
@@ -368,31 +369,6 @@ namespace MandalaLogics.Path
         {
             Watcher?.Dispose();
             Watcher = null;
-        }
-
-        public override long FileLength()
-        {
-            if (!Exists)
-            {
-                SetExists(false);
-                throw new PathAccessException(this, $"Cannot get length, file/dir does not exist or cannot be accessed: {Path}");
-            }
-
-            if (IsFile)
-            {
-                try
-                {
-                    var fi = new FileInfo(Path);
-                    SetExists(true);
-                    return fi.Length;
-                }
-                catch (Exception e)
-                {
-                    throw new PathAccessException(this, $"Cannot get file length: {Path}", e);
-                }
-            }
-
-            return 0L;
         }
 
         public override PathBase GetWorkingDirectory() =>
